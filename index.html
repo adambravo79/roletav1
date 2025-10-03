@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Roleta Profissional Avançada</title>
+<title>Roleta Corrigida</title>
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
 h1 { color: #333; }
@@ -18,7 +18,7 @@ li { margin: 5px 0; }
 </head>
 <body>
 
-<h1>Roleta Profissional Avançada</h1>
+<h1>Roleta Corrigida</h1>
 
 <div id="controls">
   <input type="text" id="novoAssunto" placeholder="Adicionar assunto">
@@ -47,161 +47,163 @@ li { margin: 5px 0; }
 <script>
 const canvas = document.getElementById('roletaCanvas');
 const ctx = canvas.getContext('2d');
-const raio = canvas.width/2;
-let lista = JSON.parse(localStorage.getItem('lista'))||[];
-let historico = JSON.parse(localStorage.getItem('historico'))||[];
+const raio = canvas.width / 2;
+let lista = JSON.parse(localStorage.getItem('lista')) || [];
+let historico = JSON.parse(localStorage.getItem('historico')) || [];
 let anguloAtual = 0;
 let girando = false;
 
-function salvar(){
-  localStorage.setItem('lista',JSON.stringify(lista));
-  localStorage.setItem('historico',JSON.stringify(historico));
+function salvar() {
+  localStorage.setItem('lista', JSON.stringify(lista));
+  localStorage.setItem('historico', JSON.stringify(historico));
 }
 
-function renderizarLista(){
+function renderizarLista() {
   const ul = document.getElementById('assuntos');
-  ul.innerHTML='';
-  lista.forEach((item,i)=>{
-    const li=document.createElement('li');
-    li.textContent = item.nome + (item.comprado?' (Comprado)':'');
-    if(!item.comprado){
-      const btn=document.createElement('button');
-      btn.textContent='Comprar';
-      btn.onclick=()=>comprarAssunto(i);
+  ul.innerHTML = '';
+  lista.forEach((item, i) => {
+    const li = document.createElement('li');
+    li.textContent = item.nome + (item.comprado ? ' (Comprado)' : '');
+    if (!item.comprado) {
+      const btn = document.createElement('button');
+      btn.textContent = 'Comprar';
+      btn.onclick = () => comprarAssunto(i);
       li.appendChild(btn);
     }
     ul.appendChild(li);
   });
 
-  const histUl=document.getElementById('historico');
-  histUl.innerHTML='';
-  historico.slice().reverse().forEach(h=>{
-    const li=document.createElement('li');
-    li.textContent=`${h.data} → Sorteado: ${h.sorteado}, Comprados: ${h.comprados.join(', ')}`;
+  const histUl = document.getElementById('historico');
+  histUl.innerHTML = '';
+  historico.slice().reverse().forEach(h => {
+    const li = document.createElement('li');
+    li.textContent = `${h.data} → Sorteado: ${h.sorteado}, Comprados: ${h.comprados.join(', ')}`;
     histUl.appendChild(li);
   });
 }
 
-function desenharRoleta(){
-  const disponiveis = lista.filter(a=>!a.comprado);
+function desenharRoleta() {
+  const disponiveis = lista.filter(a => !a.comprado);
   const n = disponiveis.length;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  disponiveis.forEach((item,i)=>{
-    const angInicio = (2*Math.PI/n)*i;
-    const angFim = angInicio + 2*Math.PI/n;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  disponiveis.forEach((item, i) => {
+    const angInicio = (2 * Math.PI / n) * i;
+    const angFim = angInicio + 2 * Math.PI / n;
 
     ctx.beginPath();
-    ctx.moveTo(raio,raio);
-    ctx.arc(raio,raio,raio,angInicio,angFim);
-    ctx.fillStyle=`hsl(${i*360/n},70%,70%)`;
-    ctx.shadowColor='rgba(0,0,0,0.3)';
-    ctx.shadowBlur=10;
+    ctx.moveTo(raio, raio);
+    ctx.arc(raio, raio, raio, angInicio, angFim);
+    ctx.fillStyle = `hsl(${i*360/n}, 70%, 70%)`;
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 10;
     ctx.fill();
     ctx.stroke();
 
-    // Texto centralizado
     ctx.save();
-    ctx.translate(raio,raio);
-    ctx.rotate(angInicio + Math.PI/n);
-    ctx.textAlign="right";
-    ctx.fillStyle="#000";
-    ctx.font="bold 16px Arial";
-    ctx.fillText(item.nome, raio-20,5);
+    ctx.translate(raio, raio);
+    ctx.rotate(angInicio + Math.PI / n);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#000";
+    ctx.font = "bold 16px Arial";
+    ctx.fillText(item.nome, raio - 20, 5);
     ctx.restore();
   });
 }
 
-function adicionarAssunto(){
-  const input=document.getElementById('novoAssunto');
-  if(input.value.trim()!==""){
-    lista.push({nome:input.value.trim(),comprado:false});
-    input.value='';
+function adicionarAssunto() {
+  const input = document.getElementById('novoAssunto');
+  if (input.value.trim() !== "") {
+    lista.push({ nome: input.value.trim(), comprado: false });
+    input.value = '';
     salvar();
     renderizarLista();
     desenharRoleta();
   }
 }
 
-function comprarAssunto(index){
-  lista[index].comprado=true;
+function comprarAssunto(index) {
+  lista[index].comprado = true;
   salvar();
   renderizarLista();
   desenharRoleta();
 }
 
-function girarRoleta(){
-  if(girando) return;
-  const disponiveis = lista.filter(a=>!a.comprado);
-  if(disponiveis.length===0){alert('Nenhum assunto disponível!'); return;}
+function girarRoleta() {
+  if (girando) return;
+  const disponiveis = lista.filter(a => !a.comprado);
+  if (disponiveis.length === 0) { alert('Nenhum assunto disponível!'); return; }
 
-  girando=true;
-  const audio=document.getElementById('musica');
-  audio.currentTime=0;
+  girando = true;
+  const audio = document.getElementById('musica');
+  audio.currentTime = 0;
   audio.play();
-  const clickAudio=document.getElementById('click');
+  const clickAudio = document.getElementById('click');
 
-  const sorteadoIndex = Math.floor(Math.random()*disponiveis.length);
   const n = disponiveis.length;
-  const fatiaGraus = 360/n;
-  const alvo = 360*6 + sorteadoIndex*fatiaGraus + fatiaGraus/2;
-  const duracao = 5500;
+  const fatiaGraus = 360 / n;
+  const sorteadoIndex = Math.floor(Math.random() * n);
 
+  // Gira até a fatia sorteada ficar sob o pin (que aponta para cima)
+  const alvo = 360 * 5 - sorteadoIndex * fatiaGraus - fatiaGraus/2;
+  const duracao = 5500;
   const inicio = performance.now();
   const rotIni = anguloAtual;
-  const rotFim = anguloAtual+alvo;
+  const rotFim = anguloAtual + alvo;
 
-  function anim(t){
+  function anim(t) {
     const tempo = t - inicio;
-    const perc = Math.min(tempo/duracao,1);
-    const ang = rotIni + (rotFim-rotIni)*(1 - Math.pow(1-perc,3));
-    canvas.style.transform=`rotate(${ang}deg)`;
+    const perc = Math.min(tempo / duracao, 1);
+    const ang = rotIni + (rotFim - rotIni) * (1 - Math.pow(1 - perc, 3)); // desaceleração cubic
 
-    const fatiasPassadas = Math.floor(ang/fatiaGraus);
-    if(anim.ultimoClick!==fatiasPassadas){
-      clickAudio.currentTime=0;
+    canvas.style.transform = `rotate(${ang}deg)`;
+
+    const fatiasPassadas = Math.floor(ang / fatiaGraus);
+    if (anim.ultimoClick !== fatiasPassadas) {
+      clickAudio.currentTime = 0;
       clickAudio.play();
-      anim.ultimoClick=fatiasPassadas;
+      anim.ultimoClick = fatiasPassadas;
     }
 
-    if(perc<1) requestAnimationFrame(anim);
-    else{
-      anguloAtual=rotFim%360;
+    if (perc < 1) requestAnimationFrame(anim);
+    else {
+      anguloAtual = rotFim % 360;
       audio.pause();
       const sorteado = disponiveis[sorteadoIndex].nome;
-      document.getElementById('resultado').textContent=`Sorteado: ${sorteado}`;
-      const comprados=lista.filter(a=>a.comprado).map(a=>a.nome);
-      historico.push({data:new Date().toLocaleString(),sorteado,comprados});
+      document.getElementById('resultado').textContent = `Sorteado: ${sorteado}`;
+      const comprados = lista.filter(a => a.comprado).map(a => a.nome);
+      historico.push({ data: new Date().toLocaleString(), sorteado, comprados });
       salvar();
       renderizarLista();
-      girando=false;
+      girando = false;
     }
   }
-  anim.ultimoClick=-1;
+  anim.ultimoClick = -1;
   requestAnimationFrame(anim);
 }
 
-function resetHistorico(){
-  if(confirm('Deseja realmente resetar o histórico?')){
-    historico=[];
+function resetHistorico() {
+  if (confirm('Deseja realmente resetar o histórico?')) {
+    historico = [];
     salvar();
     renderizarLista();
   }
 }
 
-function exportarCSV(){
-  let csv="Data,Sorteado,Comprados\n";
-  historico.forEach(h=>{
-    csv+=`"${h.data}","${h.sorteado}","${h.comprados.join(';')}"\n`;
+function exportarCSV() {
+  let csv = "Data,Sorteado,Comprados\n";
+  historico.forEach(h => {
+    csv += `"${h.data}","${h.sorteado}","${h.comprados.join(';')}"\n`;
   });
-  const blob = new Blob([csv],{type:'text/csv'});
+  const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download="historico_roleta.csv";
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "historico_roleta.csv";
   a.click();
   URL.revokeObjectURL(url);
 }
 
+// Inicialização
 renderizarLista();
 desenharRoleta();
 </script>
