@@ -1,212 +1,91 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Roleta Corrigida</title>
-<style>
-body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
-h1 { color: #333; }
-#controls { margin: 20px 0; }
-input { padding: 5px; font-size: 16px; }
-button { padding: 6px 12px; font-size: 16px; margin: 5px; cursor:pointer; }
-#roletaContainer { position: relative; width: 400px; height: 400px; margin: 20px auto; }
-#roletaCanvas { border-radius: 50%; background: #fff; box-shadow: 0 0 15px rgba(0,0,0,0.3); }
-#pin { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 40px solid red; z-index: 10; }
-ul { list-style: none; padding: 0; max-width: 500px; margin: 20px auto; text-align: left; }
-li { margin: 5px 0; }
-</style>
+  <meta charset="UTF-8">
+  <title>Roleta de Assuntos</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      border: 2px solid #000;
+      margin-top: 20px;
+    }
+    #pin {
+      position: absolute;
+      top: 380px; /* ajusta vertical */
+      left: 50%;
+      transform: translateX(-50%) rotate(180deg); /* aponta para baixo */
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-top: 30px solid red;
+    }
+    #container {
+      position: relative;
+      width: 600px;
+      height: 600px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+    }
+  </style>
 </head>
 <body>
+  <h1>Roleta de Assuntos</h1>
+  <div id="container">
+    <canvas id="roleta" width="600" height="600"></canvas>
+    <div id="pin"></div>
+  </div>
+  <button onclick="girar()">Girar</button>
+  <p id="resultado"></p>
+  <audio id="som" src="musica.mp3"></audio>
 
-<h1>Roleta Corrigida</h1>
+  <script>
+    const canvas = document.getElementById("roleta");
+    const ctx = canvas.getContext("2d");
+    const raio = canvas.width / 2;
+    let anguloAtual = 0;
 
-<div id="controls">
-  <input type="text" id="novoAssunto" placeholder="Adicionar assunto">
-  <button onclick="adicionarAssunto()">Adicionar</button>
-  <button onclick="girarRoleta()">Girar 🎵</button>
-  <button onclick="resetHistorico()">Resetar Histórico</button>
-  <button onclick="exportarCSV()">Exportar CSV</button>
-</div>
+    // Lista de itens
+    let itens = ["Tema 1", "Tema 2", "Tema 3", "Tema 4", "Tema 5", "Tema 6"];
 
-<div id="roletaContainer">
-  <canvas id="roletaCanvas" width="400" height="400"></canvas>
-  <div id="pin"></div>
-</div>
+    function desenharRoleta() {
+      const n = itens.length;
+      const anguloPorFatia = 2 * Math.PI / n;
 
-<h2 id="resultado"></h2>
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-<h3>Lista de Assuntos</h3>
-<ul id="assuntos"></ul>
+      for (let i = 0; i < n; i++) {
+        const angInicio = i * anguloPorFatia + anguloAtual;
+        const angFim = angInicio + anguloPorFatia;
 
-<h3>Histórico</h3>
-<ul id="historico"></ul>
+        // Cor alternada
+        ctx.fillStyle = i % 2 === 0 ? "#FFD700" : "#FF6347";
+        ctx.beginPath();
+        ctx.moveTo(raio, raio);
+        ctx.arc(raio, raio, raio, angInicio, angFim);
+        ctx.closePath();
+        ctx.fill();
 
-<audio id="musica" src="sua-musica.mp3"></audio>
-<audio id="click" src="click.mp3"></audio>
-
-<script>
-const canvas = document.getElementById('roletaCanvas');
-const ctx = canvas.getContext('2d');
-const raio = canvas.width / 2;
-let lista = JSON.parse(localStorage.getItem('lista')) || [];
-let historico = JSON.parse(localStorage.getItem('historico')) || [];
-let anguloAtual = 0;
-let girando = false;
-
-function salvar() {
-  localStorage.setItem('lista', JSON.stringify(lista));
-  localStorage.setItem('historico', JSON.stringify(historico));
-}
-
-function renderizarLista() {
-  const ul = document.getElementById('assuntos');
-  ul.innerHTML = '';
-  lista.forEach((item, i) => {
-    const li = document.createElement('li');
-    li.textContent = item.nome + (item.comprado ? ' (Comprado)' : '');
-    if (!item.comprado) {
-      const btn = document.createElement('button');
-      btn.textContent = 'Comprar';
-      btn.onclick = () => comprarAssunto(i);
-      li.appendChild(btn);
-    }
-    ul.appendChild(li);
-  });
-
-  const histUl = document.getElementById('historico');
-  histUl.innerHTML = '';
-  historico.slice().reverse().forEach(h => {
-    const li = document.createElement('li');
-    li.textContent = `${h.data} → Sorteado: ${h.sorteado}, Comprados: ${h.comprados.join(', ')}`;
-    histUl.appendChild(li);
-  });
-}
-
-function desenharRoleta() {
-  const disponiveis = lista.filter(a => !a.comprado);
-  const n = disponiveis.length;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  disponiveis.forEach((item, i) => {
-    const angInicio = (2 * Math.PI / n) * i;
-    const angFim = angInicio + 2 * Math.PI / n;
-
-    ctx.beginPath();
-    ctx.moveTo(raio, raio);
-    ctx.arc(raio, raio, raio, angInicio, angFim);
-    ctx.fillStyle = `hsl(${i*360/n}, 70%, 70%)`;
-    ctx.shadowColor = 'rgba(0,0,0,0.3)';
-    ctx.shadowBlur = 10;
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.save();
-    ctx.translate(raio, raio);
-    ctx.rotate(angInicio + Math.PI / n);
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#000";
-    ctx.font = "bold 16px Arial";
-    ctx.fillText(item.nome, raio - 20, 5);
-    ctx.restore();
-  });
-}
-
-function adicionarAssunto() {
-  const input = document.getElementById('novoAssunto');
-  if (input.value.trim() !== "") {
-    lista.push({ nome: input.value.trim(), comprado: false });
-    input.value = '';
-    salvar();
-    renderizarLista();
-    desenharRoleta();
-  }
-}
-
-function comprarAssunto(index) {
-  lista[index].comprado = true;
-  salvar();
-  renderizarLista();
-  desenharRoleta();
-}
-
-function girarRoleta() {
-  if (girando) return;
-  const disponiveis = lista.filter(a => !a.comprado);
-  if (disponiveis.length === 0) { alert('Nenhum assunto disponível!'); return; }
-
-  girando = true;
-  const audio = document.getElementById('musica');
-  audio.currentTime = 0;
-  audio.play();
-  const clickAudio = document.getElementById('click');
-
-  const n = disponiveis.length;
-  const fatiaGraus = 360 / n;
-  const sorteadoIndex = Math.floor(Math.random() * n);
-
-  // Gira até a fatia sorteada ficar sob o pin (que aponta para cima)
-  const alvo = 360 * 5 - sorteadoIndex * fatiaGraus - fatiaGraus/2;
-  const duracao = 5500;
-  const inicio = performance.now();
-  const rotIni = anguloAtual;
-  const rotFim = anguloAtual + alvo;
-
-  function anim(t) {
-    const tempo = t - inicio;
-    const perc = Math.min(tempo / duracao, 1);
-    const ang = rotIni + (rotFim - rotIni) * (1 - Math.pow(1 - perc, 3)); // desaceleração cubic
-
-    canvas.style.transform = `rotate(${ang}deg)`;
-
-    const fatiasPassadas = Math.floor(ang / fatiaGraus);
-    if (anim.ultimoClick !== fatiasPassadas) {
-      clickAudio.currentTime = 0;
-      clickAudio.play();
-      anim.ultimoClick = fatiasPassadas;
+        // Texto
+        ctx.save();
+        ctx.translate(raio, raio);
+        ctx.rotate(angInicio + anguloPorFatia / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#000";
+        ctx.font = "20px Arial";
+        ctx.fillText(itens[i], raio - 10, 10);
+        ctx.restore();
+      }
     }
 
-    if (perc < 1) requestAnimationFrame(anim);
-    else {
-      anguloAtual = rotFim % 360;
-      audio.pause();
-      const sorteado = disponiveis[sorteadoIndex].nome;
-      document.getElementById('resultado').textContent = `Sorteado: ${sorteado}`;
-      const comprados = lista.filter(a => a.comprado).map(a => a.nome);
-      historico.push({ data: new Date().toLocaleString(), sorteado, comprados });
-      salvar();
-      renderizarLista();
-      girando = false;
-    }
-  }
-  anim.ultimoClick = -1;
-  requestAnimationFrame(anim);
-}
-
-function resetHistorico() {
-  if (confirm('Deseja realmente resetar o histórico?')) {
-    historico = [];
-    salvar();
-    renderizarLista();
-  }
-}
-
-function exportarCSV() {
-  let csv = "Data,Sorteado,Comprados\n";
-  historico.forEach(h => {
-    csv += `"${h.data}","${h.sorteado}","${h.comprados.join(';')}"\n`;
-  });
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = "historico_roleta.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Inicialização
-renderizarLista();
-desenharRoleta();
-</script>
-
-</body>
-</html>
+    function girar() {
+      if (itens.length === 0) {
+        alert("Não há mais itens
