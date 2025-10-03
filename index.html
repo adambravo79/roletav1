@@ -1,91 +1,294 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Roleta de Assuntos</title>
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-family: Arial, sans-serif;
-    }
-    canvas {
-      border: 2px solid #000;
-      margin-top: 20px;
-    }
-    #pin {
-      position: absolute;
-      top: 380px; /* ajusta vertical */
-      left: 50%;
-      transform: translateX(-50%) rotate(180deg); /* aponta para baixo */
-      width: 0;
-      height: 0;
-      border-left: 20px solid transparent;
-      border-right: 20px solid transparent;
-      border-top: 30px solid red;
-    }
-    #container {
-      position: relative;
-      width: 600px;
-      height: 600px;
-    }
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 18px;
-    }
-  </style>
+<meta charset="utf-8" />
+<title>Roleta - Corrigida</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; background:#fafafa; text-align:center; padding:20px; }
+  h1 { margin: 0 0 12px 0; }
+  #controls { margin-bottom: 12px; }
+  textarea { width: 420px; height: 120px; font-size:14px; padding:8px; }
+  button { margin: 6px; padding:8px 12px; font-size:14px; cursor:pointer; }
+  #container { position: relative; width: 480px; height: 520px; margin: 14px auto 6px; }
+  canvas { position: absolute; left: 50%; transform: translateX(-50%) rotate(0deg); top: 80px; width: 420px; height: 420px; border-radius: 50%; box-shadow:0 6px 18px rgba(0,0,0,0.15); }
+  #pin { position:absolute; left:50%; top: 20px; transform: translateX(-50%); z-index: 20; }
+  #resultado { font-size:20px; margin-top: 14px; font-weight:700; }
+  #listaVis { max-width:480px; margin:8px auto; text-align:left; }
+  .itemRow { display:flex; justify-content:space-between; align-items:center; padding:4px 0; }
+  .removeBtn { margin-left:8px; }
+</style>
 </head>
 <body>
-  <h1>Roleta de Assuntos</h1>
-  <div id="container">
-    <canvas id="roleta" width="600" height="600"></canvas>
-    <div id="pin"></div>
+
+<h1>Roleta - Corrigida</h1>
+
+<div id="controls">
+  <div>
+    <label for="listaInput">Temas (1 por linha):</label><br>
+    <textarea id="listaInput" placeholder="Digite um tema por linha..."></textarea>
   </div>
-  <button onclick="girar()">Girar</button>
-  <p id="resultado"></p>
-  <audio id="som" src="musica.mp3"></audio>
+  <div style="margin-top:8px;">
+    <button id="btnAtualizar">Atualizar lista</button>
+    <button id="btnGirar">Girar 🎵</button>
+    <button id="btnReset">Resetar roleta</button>
+  </div>
+</div>
 
-  <script>
-    const canvas = document.getElementById("roleta");
-    const ctx = canvas.getContext("2d");
-    const raio = canvas.width / 2;
-    let anguloAtual = 0;
+<div id="container">
+  <!-- pin: SVG com ponta para baixo -->
+  <div id="pin" aria-hidden="true">
+    <svg width="48" height="36" viewBox="0 0 40 30" xmlns="http://www.w3.org/2000/svg">
+      <!-- polígono com ponta para baixo (centro em baixo) -->
+      <polygon points="20,30 0,0 40,0" fill="#d32f2f" stroke="#8b0000" stroke-width="1"/>
+    </svg>
+  </div>
 
-    // Lista de itens
-    let itens = ["Tema 1", "Tema 2", "Tema 3", "Tema 4", "Tema 5", "Tema 6"];
+  <!-- canvas (roleta) -->
+  <canvas id="wheel" width="420" height="420"></canvas>
+</div>
 
-    function desenharRoleta() {
-      const n = itens.length;
-      const anguloPorFatia = 2 * Math.PI / n;
+<div id="resultado">Sorteado: —</div>
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+<div id="listaVis"></div>
 
-      for (let i = 0; i < n; i++) {
-        const angInicio = i * anguloPorFatia + anguloAtual;
-        const angFim = angInicio + anguloPorFatia;
+<!-- Sons opcionais -->
+<audio id="musica" src="sua-musica.mp3"></audio>
+<audio id="click" src="click.mp3"></audio>
 
-        // Cor alternada
-        ctx.fillStyle = i % 2 === 0 ? "#FFD700" : "#FF6347";
-        ctx.beginPath();
-        ctx.moveTo(raio, raio);
-        ctx.arc(raio, raio, raio, angInicio, angFim);
-        ctx.closePath();
-        ctx.fill();
+<script>
+/* ROULETTE - Corrigida
+- Entrada por textarea (1 tema por linha). 'Atualizar lista' aplica.
+- Pin em SVG apontando para baixo (acima da roleta).
+- Cálculo de rotação ajustado para garantir que o item sorteado fique exatamente debaixo do pin.
+- Ao atualizar lista, a roleta é redesenhada e rotação resetada.
+*/
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const size = canvas.width; // 420
+const radius = size / 2;
+const startAngle = -Math.PI / 2; // começar do topo (facilita o cálculo)
+let items = [];            // array de strings
+let rotation = 0;          // rotação atual (graus)
+let spinning = false;
 
-        // Texto
-        ctx.save();
-        ctx.translate(raio, raio);
-        ctx.rotate(angInicio + anguloPorFatia / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#000";
-        ctx.font = "20px Arial";
-        ctx.fillText(itens[i], raio - 10, 10);
-        ctx.restore();
+const textarea = document.getElementById('listaInput');
+const btnAtualizar = document.getElementById('btnAtualizar');
+const btnGirar = document.getElementById('btnGirar');
+const btnReset = document.getElementById('btnReset');
+const resultadoEl = document.getElementById('resultado');
+const listaVis = document.getElementById('listaVis');
+const audio = document.getElementById('musica');
+const clickAudio = document.getElementById('click');
+
+function salvarLocal(){
+  localStorage.setItem('roleta_items', JSON.stringify(items));
+}
+
+function carregarLocal(){
+  const s = localStorage.getItem('roleta_items');
+  if(s){
+    try { items = JSON.parse(s); }
+    catch(e){ items = []; }
+  }
+}
+
+function atualizarTextareaPorItems(){
+  // Preenche textarea com cada item em nova linha
+  textarea.value = items.join('\n');
+}
+
+function aplicarTextarea(){
+  const lines = textarea.value.split('\n').map(l => l.trim()).filter(l => l.length>0);
+  items = lines.slice(); // copia
+  salvarLocal();
+  resetRotationAndDraw();
+  mostrarListaVis();
+}
+
+function resetRotationAndDraw(){
+  rotation = 0;
+  canvas.style.transition = 'none';
+  canvas.style.transform = `rotate(0deg)`;
+  drawWheel();
+  resultadoEl.textContent = 'Sorteado: —';
+}
+
+function mostrarListaVis(){
+  listaVis.innerHTML = '';
+  items.forEach((it, idx) => {
+    const row = document.createElement('div');
+    row.className = 'itemRow';
+    const left = document.createElement('div');
+    left.textContent = (idx+1) + '. ' + it;
+    const right = document.createElement('div');
+    const rm = document.createElement('button');
+    rm.textContent = 'Remover';
+    rm.className = 'removeBtn';
+    rm.onclick = () => {
+      if(confirm('Remover "' + it + '" da lista?')){
+        items.splice(idx,1);
+        salvarLocal();
+        atualizarTextareaPorItems();
+        resetRotationAndDraw();
+        mostrarListaVis();
       }
+    };
+    right.appendChild(rm);
+    row.appendChild(left);
+    row.appendChild(right);
+    listaVis.appendChild(row);
+  });
+}
+
+// desenha a roleta (não mexe na rotação CSS)
+function drawWheel(){
+  const n = items.length || 1;
+  const anglePer = (2 * Math.PI) / n;
+  ctx.clearRect(0,0,size,size);
+  ctx.save();
+  ctx.translate(radius, radius);
+
+  for(let i=0;i<n;i++){
+    const ang0 = startAngle + i * anglePer;
+    const ang1 = ang0 + anglePer;
+    // cor
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.arc(0,0, radius, ang0, ang1);
+    ctx.closePath();
+    ctx.fillStyle = `hsl(${(i * 360 / n)}, 65%, 70%)`;
+    ctx.shadowColor = 'rgba(0,0,0,0.15)';
+    ctx.shadowBlur = 6;
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.stroke();
+
+    // texto - posicionado radialmente (sempre legível)
+    ctx.save();
+    const angMid = ang0 + anglePer/2;
+    ctx.rotate(angMid);
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    // coloca o texto um pouco para fora do centro
+    const textRadius = radius * 0.62;
+    // quebra texto se muito longo (simples)
+    const text = items[i] ? items[i] : '';
+    wrapText(ctx, text, 0, -textRadius + 6, 120, 16);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// helper para quebrar texto em várias linhas (centroado)
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const words = text.split(' ');
+  let line = '';
+  let lines = [];
+  for(let n=0;n<words.length;n++){
+    const testLine = line + words[n] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if(metrics.width > maxWidth && n>0){
+      lines.push(line.trim());
+      line = words[n] + ' ';
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line.trim());
+  // desenhar as linhas centralizadas verticalmente em y
+  const startY = y - ((lines.length-1) * lineHeight)/2;
+  for(let i=0;i<lines.length;i++){
+    ctx.fillText(lines[i], x, startY + i * lineHeight);
+  }
+}
+
+// animação de giro (usa requestAnimationFrame)
+function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+
+function girarRoleta(){
+  if(spinning) return;
+  if(items.length === 0){ alert('Lista vazia. Adicione temas e atualize.'); return; }
+
+  const n = items.length;
+  const sliceDeg = 360 / n;
+  const chosenIndex = Math.floor(Math.random() * n);
+
+  // alvo absoluto (graus): várias voltas menos centro da fatia escolhida
+  // cálculo: queremos que o centro da fatia escolhida fique sob o pin (top), mas pin aponta PARA BAIXO.
+  // como desenhamos com startAngle = -90 (top), fórmula que funciona é:
+  // target = spins*360 - (index + 0.5)*sliceDeg
+  const spins = 6;
+  let baseTarget = spins * 360 - (chosenIndex + 0.5) * sliceDeg;
+
+  // garantir que o alvo seja maior que rotation (para girar sempre pra frente)
+  while(baseTarget <= rotation) baseTarget += 360;
+
+  const startRot = rotation;
+  const endRot = baseTarget;
+  const dur = 5200;
+  const startTime = performance.now();
+  spinning = true;
+
+  // tocar música se tiver
+  try { audio.currentTime = 0; audio.play(); } catch(e){ /*silenciar se proibido*/ }
+
+  // para efeito de clique por fatia (opcional)
+  let lastTick = -1;
+
+  function frame(t){
+    const elapsed = t - startTime;
+    const pct = Math.min(elapsed / dur, 1);
+    const eased = easeOutCubic(pct);
+    const current = startRot + (endRot - startRot) * eased;
+    // aplicar rotação (CSS)
+    canvas.style.transform = `translateX(-50%) rotate(${current}deg)`;
+    // efeito de clique (opcional) — quando passa uma nova fatia inteira
+    const passed = Math.floor(current / sliceDeg);
+    if(passed !== lastTick){
+      lastTick = passed;
+      // reproduz som de clique se existir
+      if(clickAudio && !clickAudio.paused){
+        // não iniciar se já tocando; se quiser forçar:
+      }
+      try { clickAudio.currentTime = 0; clickAudio.play(); } catch(e) {}
     }
 
-    function girar() {
-      if (itens.length === 0) {
-        alert("Não há mais itens
+    if(pct < 1) requestAnimationFrame(frame);
+    else {
+      rotation = endRot; // atualização persistente
+      spinning = false;
+      // pausar música
+      try { audio.pause(); } catch(e){}
+      // mostrar resultado exatamente o item escolhido
+      resultadoEl.textContent = 'Sorteado: ' + items[chosenIndex];
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// Reset completo (apenas visual)
+function resetAll(){
+  if(confirm('Resetar roleta (rotação zerada)?')){
+    rotation = 0;
+    canvas.style.transition = 'none';
+    canvas.style.transform = 'translateX(-50%) rotate(0deg)';
+    resultadoEl.textContent = 'Sorteado: —';
+  }
+}
+
+/* Eventos */
+btnAtualizar.addEventListener('click', aplicarTextarea);
+btnGirar.addEventListener('click', girarRoleta);
+btnReset.addEventListener('click', resetAll);
+
+// inicialização: carrega localStorage se houver, preenche textarea e desenha
+carregarLocal();
+atualizarTextareaPorItems();
+drawWheel();
+mostrarListaVis();
+</script>
+</body>
+</html>
